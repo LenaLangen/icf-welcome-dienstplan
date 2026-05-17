@@ -126,6 +126,39 @@ def save_responses(responses):
         json.dump(responses, f, ensure_ascii=False, indent=2)
 
 
+CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
+
+def load_config():
+    if GITHUB_TOKEN:
+        data, _ = _gh_read("data/config.json")
+        if data:
+            return data
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE) as f:
+            return json.load(f)
+    return {}
+
+def save_config(config):
+    if GITHUB_TOKEN:
+        _, sha = _gh_read("data/config.json")
+        _gh_write("data/config.json", config, sha)
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+def get_active_sundays(year: int, month: int) -> list[date]:
+    """All Sundays of the month minus manually deactivated ones."""
+    config = load_config()
+    excluded = config.get(response_key(year, month), {}).get("excluded_sundays", [])
+    cal = calendar.monthcalendar(year, month)
+    sundays = []
+    for week in cal:
+        if week[6] != 0:
+            d = date(year, month, week[6])
+            if d.strftime("%d.%m.") not in excluded:
+                sundays.append(d)
+    return sundays
+
 def get_sundays(year: int, month: int) -> list[date]:
     cal = calendar.monthcalendar(year, month)
     sundays = []
@@ -165,7 +198,7 @@ def page_survey():
         return
 
     is_tl = name in team["tl"]
-    sundays = get_sundays(year, month)
+    sundays = get_active_sundays(year, month)
 
     st.markdown(f"### {GERMAN_MONTHS[month]} {year}")
 
@@ -245,7 +278,7 @@ def page_overview():
 
     key = response_key(year, month)
     month_responses = responses.get(key, {})
-    sundays = get_sundays(year, month)
+    sundays = get_active_sundays(year, month)
 
     responded = set(month_responses.keys())
     not_responded = set(all_members) - responded
@@ -519,6 +552,51 @@ def export_excel(year, month, schedule, sundays):
     return path
 
 
+def page_settings():
+    st.title("⚙️ Monats-Einstellungen")
+    st.markdown("Sonntage ohne Gottesdienst hier deaktivieren — sie erscheinen dann weder in der Umfrage noch im Dienstplan.")
+
+    if "admin_ok" not in st.session_state or not st.session_state.admin_ok:
+        st.warning("Bitte zuerst im Übersicht-Tab einloggen.")
+        return
+
+    today = date.today()
+    next_month = today.replace(day=1) + timedelta(days=32)
+    col1, col2 = st.columns(2)
+    with col1:
+        year = st.selectbox("Jahr", [today.year, today.year + 1],
+                            index=0 if next_month.year == today.year else 1, key="cfg_year")
+    with col2:
+        month = st.selectbox("Monat", list(range(1, 13)),
+                             format_func=lambda m: GERMAN_MONTHS[m],
+                             index=next_month.month - 1, key="cfg_month")
+
+    all_sundays = get_sundays(year, month)
+    config = load_config()
+    key = response_key(year, month)
+    excluded = config.get(key, {}).get("excluded_sundays", [])
+
+    st.markdown(f"### Sonntage im {GERMAN_MONTHS[month]} {year}")
+    new_excluded = []
+    for sunday in all_sundays:
+        ds = sunday.strftime("%d.%m.")
+        active = st.checkbox(f"{ds} – Gottesdienst findet statt",
+                             value=(ds not in excluded),
+                             key=f"cfg_{ds}")
+        if not active:
+            new_excluded.append(ds)
+
+    if st.button("💾 Speichern", type="primary"):
+        if key not in config:
+            config[key] = {}
+        config[key]["excluded_sundays"] = new_excluded
+        save_config(config)
+        if new_excluded:
+            st.success(f"Gespeichert. Deaktiviert: {', '.join(new_excluded)}")
+        else:
+            st.success("Alle Sonntage sind aktiv.")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 st.set_page_config(
@@ -532,7 +610,7 @@ st.sidebar.markdown("---")
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🌸 Verfügbarkeiten eintragen", "📋 Übersicht & Dienstplan", "👥 Team verwalten"],
+    ["🌸 Verfügbarkeiten eintragen", "📋 Übersicht & Dienstplan", "👥 Team verwalten", "⚙️ Monats-Einstellungen"],
 )
 
 if page == "🌸 Verfügbarkeiten eintragen":
@@ -541,6 +619,8 @@ elif page == "📋 Übersicht & Dienstplan":
     page_overview()
 elif page == "👥 Team verwalten":
     page_team()
+elif page == "⚙️ Monats-Einstellungen":
+    page_settings()
 
 st.sidebar.markdown("---")
-st.sidebar.caption("ICF Welcome-Team Tool · v1.1")
+st.sidebar.caption("ICF Welcome-Team Tool · v1.2")
