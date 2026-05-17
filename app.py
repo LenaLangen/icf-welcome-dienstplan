@@ -199,6 +199,8 @@ def page_survey():
 
     is_tl = name in team["tl"]
     sundays = get_active_sundays(year, month)
+    config = load_config()
+    mkey = response_key(year, month)
 
     st.markdown(f"### {GERMAN_MONTHS[month]} {year}")
 
@@ -211,9 +213,11 @@ def page_survey():
     for sunday in sundays:
         ds = sunday.strftime("%d.%m.")
         st.markdown(f"**{ds}**")
+        t930  = get_slot_label(config, mkey, ds, "09:30") + " Uhr"
+        t1130 = get_slot_label(config, mkey, ds, "11:30") + " Uhr"
 
         if is_tl:
-            for slot, label in [("09:30", "09:30 Uhr"), ("11:30", "11:30 Uhr")]:
+            for slot, label in [("09:30", t930), ("11:30", t1130)]:
                 cols = st.columns([2, 2, 2, 1])
                 cols[0].markdown(f"*{label}*")
                 as_tl = cols[1].checkbox("Als Tagesleitung", key=f"{ds}_{slot}_tl")
@@ -224,8 +228,8 @@ def page_survey():
                 selections[ds][f"{slot}_tl"] = as_tl
         else:
             cols = st.columns([2, 2, 2])
-            c930 = cols[0].checkbox("09:30 Uhr", key=f"{ds}_930")
-            c1130 = cols[1].checkbox("11:30 Uhr", key=f"{ds}_1130")
+            c930  = cols[0].checkbox(t930,  key=f"{ds}_930")
+            c1130 = cols[1].checkbox(t1130, key=f"{ds}_1130")
             selections[ds] = {"09:30": c930, "11:30": c1130}
 
         st.markdown("")
@@ -302,6 +306,8 @@ def page_overview():
     st.markdown(f"### Verfügbarkeitsmatrix – {GERMAN_MONTHS[month]} {year}")
     st.caption("TL = Tagesleitung · W = Welcomer · TL+W = beides · — = nicht verfügbar")
 
+    config = load_config()
+    mkey = response_key(year, month)
     rows = []
     for n in sorted(month_responses.keys()):
         row = {"Name": n, "Rolle": "TL" if n in team["tl"] else "Welcome"}
@@ -310,7 +316,7 @@ def page_overview():
             ds = sunday.strftime("%d.%m.")
             for slot in ["09:30", "11:30"]:
                 as_tl = avail.get(ds, {}).get(f"{slot}_tl", False)
-                as_w = avail.get(ds, {}).get(slot, False)
+                as_w  = avail.get(ds, {}).get(slot, False)
                 if as_tl and as_w:
                     val = "TL+W"
                 elif as_tl:
@@ -319,7 +325,8 @@ def page_overview():
                     val = "W"
                 else:
                     val = "—"
-                row[f"{ds} {slot}"] = val
+                label = get_slot_label(config, mkey, ds, slot)
+                row[f"{ds} {label}"] = val
         row["Anmerkung"] = month_responses[n].get("note", "")
         rows.append(row)
 
@@ -474,6 +481,8 @@ def display_schedule(schedule, sundays):
 # ── Excel export ──────────────────────────────────────────────────────────────
 
 def export_excel(year, month, schedule, sundays):
+    config = load_config()
+    mkey = response_key(year, month)
     wb = Workbook()
     ws = wb.active
     ws.title = f"{GERMAN_MONTHS[month]} {year}"
@@ -506,8 +515,10 @@ def export_excel(year, month, schedule, sundays):
         ds = sunday.strftime("%d.%m.")
         ws.merge_cells(start_row=2, start_column=col, end_row=2, end_column=col + 1)
         cell(2, col, ds, bold=True, bg=COLORS["sunday_fill"], center=True)
-        cell(3, col, "09:30 Uhr", bold=True, bg=COLORS["time_fill"], center=True)
-        cell(3, col + 1, "11:30 Uhr", bold=True, bg=COLORS["time_fill"], center=True)
+        t930  = get_slot_label(config, mkey, ds, "09:30") + " Uhr"
+        t1130 = get_slot_label(config, mkey, ds, "11:30") + " Uhr"
+        cell(3, col,     t930,  bold=True, bg=COLORS["time_fill"], center=True)
+        cell(3, col + 1, t1130, bold=True, bg=COLORS["time_fill"], center=True)
         col += 2
 
     cell(2, 1, "", bg=COLORS["sunday_fill"])
@@ -552,9 +563,14 @@ def export_excel(year, month, schedule, sundays):
     return path
 
 
+def get_slot_label(config, month_key, ds, slot):
+    """Returns the display time for a slot, custom or default."""
+    return config.get(month_key, {}).get("custom_times", {}).get(ds, {}).get(slot, slot)
+
+
 def page_settings():
     st.title("⚙️ Monats-Einstellungen")
-    st.markdown("Sonntage ohne Gottesdienst hier deaktivieren — sie erscheinen dann weder in der Umfrage noch im Dienstplan.")
+    st.markdown("Sonntage deaktivieren oder Uhrzeiten anpassen — Änderungen gelten sofort für Umfrage und Dienstplan.")
 
     if "admin_ok" not in st.session_state or not st.session_state.admin_ok:
         st.warning("Bitte zuerst im Übersicht-Tab einloggen.")
@@ -573,28 +589,45 @@ def page_settings():
 
     all_sundays = get_sundays(year, month)
     config = load_config()
-    key = response_key(year, month)
-    excluded = config.get(key, {}).get("excluded_sundays", [])
+    mkey = response_key(year, month)
+    excluded = config.get(mkey, {}).get("excluded_sundays", [])
+    custom_times = config.get(mkey, {}).get("custom_times", {})
 
     st.markdown(f"### Sonntage im {GERMAN_MONTHS[month]} {year}")
+
     new_excluded = []
+    new_custom_times = {}
+
     for sunday in all_sundays:
         ds = sunday.strftime("%d.%m.")
-        active = st.checkbox(f"{ds} – Gottesdienst findet statt",
-                             value=(ds not in excluded),
-                             key=f"cfg_{ds}")
+        active = st.checkbox(f"**{ds}** – Gottesdienst findet statt",
+                             value=(ds not in excluded), key=f"cfg_active_{ds}")
         if not active:
             new_excluded.append(ds)
+        else:
+            cols = st.columns([1, 2, 2])
+            cols[0].markdown("Uhrzeiten:")
+            t930 = cols[1].text_input("1. Gottesdienst", key=f"cfg_t930_{ds}",
+                                       value=custom_times.get(ds, {}).get("09:30", "09:30"))
+            t1130 = cols[2].text_input("2. Gottesdienst", key=f"cfg_t1130_{ds}",
+                                        value=custom_times.get(ds, {}).get("11:30", "11:30"))
+            if t930 != "09:30" or t1130 != "11:30":
+                new_custom_times[ds] = {"09:30": t930, "11:30": t1130}
+        st.markdown("")
 
     if st.button("💾 Speichern", type="primary"):
-        if key not in config:
-            config[key] = {}
-        config[key]["excluded_sundays"] = new_excluded
+        if mkey not in config:
+            config[mkey] = {}
+        config[mkey]["excluded_sundays"] = new_excluded
+        config[mkey]["custom_times"] = new_custom_times
         save_config(config)
+        msgs = []
         if new_excluded:
-            st.success(f"Gespeichert. Deaktiviert: {', '.join(new_excluded)}")
-        else:
-            st.success("Alle Sonntage sind aktiv.")
+            msgs.append(f"Deaktiviert: {', '.join(new_excluded)}")
+        if new_custom_times:
+            for ds, times in new_custom_times.items():
+                msgs.append(f"{ds}: {times['09:30']} Uhr / {times['11:30']} Uhr")
+        st.success("Gespeichert. " + " · ".join(msgs) if msgs else "Gespeichert.")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
