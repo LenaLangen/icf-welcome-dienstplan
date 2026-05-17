@@ -1,0 +1,125 @@
+{
+  "2026-06": {
+    "Ute K.": {
+      "availability": {
+        "07.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "14.06.": {
+          "09:30": true,
+          "11:30": true
+        },
+        "21.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "28.06.": {
+          "09:30": false,
+          "11:30": false
+        }
+      },
+      "note": "Nur am 14.6. möglich"
+    },
+    "Rebecca": {
+      "availability": {
+        "07.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "14.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "21.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "28.06.": {
+          "09:30": false,
+          "09:30_tl": true,
+          "11:30": false,
+          "11:30_tl": true
+        }
+      },
+      "note": ""
+    },
+    "Hivin": {
+      "availability": {
+        "07.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "14.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "21.06.": {
+          "09:30": true,
+          "11:30": true
+        },
+        "28.06.": {
+          "09:30": true,
+          "11:30": true
+        }
+      },
+      "note": ""
+    },
+    "Helena": {
+      "availability": {
+        "07.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "14.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "21.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "28.06.": {
+          "09:30": false,
+          "11:30": false
+        }
+      },
+      "note": "Im Monat Juni bin ich komplett abwesend. LG Helena "
+    },
+    "Lena L.": {
+      "availability": {
+        "07.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "14.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "21.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "28.06.": {
+          "09:30": false,
+          "09:30_tl": true,
+          "11:30": false,
+          "11:30_tl": true
+        }
+      },
+      "note": ""
+    }
+  }
+}
