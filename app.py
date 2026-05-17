@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import base64
+import requests as req
 from datetime import date, timedelta
 import calendar
 from openpyxl import Workbook
@@ -13,6 +15,9 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 RESPONSES_FILE = os.path.join(DATA_DIR, "responses.json")
 TEAM_FILE = os.path.join(DATA_DIR, "team.json")
 ADMIN_PIN = "icf2026"
+
+GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "")
+GITHUB_REPO  = st.secrets.get("GITHUB_REPO", "LenaLangen/icf-welcome-dienstplan")
 
 # Paare: werden immer zusammen eingeplant
 PAIRS = [("Andreas", "Claudia"), ("Jan M.", "Maria M.")]
@@ -51,9 +56,41 @@ COLORS = {
 }
 
 
+# ── GitHub storage ────────────────────────────────────────────────────────────
+
+def _gh_headers():
+    return {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
+
+def _gh_read(path):
+    """Returns (data_dict, sha) or (None, None)."""
+    r = req.get(f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
+                headers=_gh_headers(), timeout=10)
+    if r.status_code == 200:
+        j = r.json()
+        return json.loads(base64.b64decode(j["content"]).decode()), j["sha"]
+    return None, None
+
+def _gh_write(path, data_dict, sha=None):
+    """Create or update a file on GitHub."""
+    payload = {
+        "message": "update data",
+        "content": base64.b64encode(
+            json.dumps(data_dict, ensure_ascii=False, indent=2).encode()
+        ).decode(),
+    }
+    if sha:
+        payload["sha"] = sha
+    req.put(f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
+            headers=_gh_headers(), json=payload, timeout=10)
+
+
 # ── Data helpers ─────────────────────────────────────────────────────────────
 
 def load_team():
+    if GITHUB_TOKEN:
+        data, _ = _gh_read("data/team.json")
+        if data:
+            return data
     if os.path.exists(TEAM_FILE):
         with open(TEAM_FILE) as f:
             return json.load(f)
@@ -61,11 +98,19 @@ def load_team():
 
 
 def save_team(team):
+    if GITHUB_TOKEN:
+        _, sha = _gh_read("data/team.json")
+        _gh_write("data/team.json", team, sha)
+    os.makedirs(DATA_DIR, exist_ok=True)
     with open(TEAM_FILE, "w") as f:
         json.dump(team, f, ensure_ascii=False, indent=2)
 
 
 def load_responses():
+    if GITHUB_TOKEN:
+        data, _ = _gh_read("data/responses.json")
+        if data:
+            return data
     if os.path.exists(RESPONSES_FILE):
         with open(RESPONSES_FILE) as f:
             return json.load(f)
@@ -73,6 +118,10 @@ def load_responses():
 
 
 def save_responses(responses):
+    if GITHUB_TOKEN:
+        _, sha = _gh_read("data/responses.json")
+        _gh_write("data/responses.json", responses, sha)
+    os.makedirs(DATA_DIR, exist_ok=True)
     with open(RESPONSES_FILE, "w") as f:
         json.dump(responses, f, ensure_ascii=False, indent=2)
 
