@@ -204,6 +204,23 @@
         }
       },
       "note": "Für einen Sonntag einplanen . Danke :) "
+    },
+    "Isabella": {
+      "availability": {
+        "07.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "14.06.": {
+          "09:30": true,
+          "11:30": true
+        },
+        "28.06.": {
+          "09:30": false,
+          "11:30": false
+        }
+      },
+      "note": ""
     }
   }
 }
