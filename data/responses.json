@@ -306,6 +306,29 @@
         }
       },
       "note": ""
+    },
+    "Gitta": {
+      "availability": {
+        "07.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "14.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "28.06.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": true,
+          "11:30_tl": true
+        }
+      },
+      "note": ""
     }
   }
 }
