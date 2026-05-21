@@ -431,6 +431,23 @@
         }
       },
       "note": ""
+    },
+    "Ralf": {
+      "availability": {
+        "07.06.": {
+          "09:30": true,
+          "11:30": false
+        },
+        "14.06.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "28.06.": {
+          "09:30": false,
+          "11:30": false
+        }
+      },
+      "note": "7.6. könnte ich auch zur 2. CB, müßte aber spät. 12.30 gehen ( Spätschicht arbeiten)."
     }
   }
 }
