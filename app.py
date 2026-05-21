@@ -174,9 +174,18 @@ def response_key(year: int, month: int) -> str:
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
+SURVEY_DEADLINE_DAY = 25  # Umfrage geschlossen ab dem 26. des Vormonats
+
+def is_survey_open(year: int, month: int) -> tuple[bool, date]:
+    """Returns (is_open, deadline_date). Deadline = 25. des Vormonats."""
+    first_of_month = date(year, month, 1)
+    prev_month_last = first_of_month - timedelta(days=1)
+    deadline = date(prev_month_last.year, prev_month_last.month, SURVEY_DEADLINE_DAY)
+    return date.today() <= deadline, deadline
+
+
 def page_survey():
     st.title("🌸 Welcome-Dienst Verfügbarkeiten eintragen")
-    st.markdown("Bitte trage ein, an welchen Sonntagen du eingesetzt werden kannst. **Kein Login nötig.**")
 
     team = load_team()
     all_members = sorted(team["tl"] + team["regular"])
@@ -192,6 +201,13 @@ def page_survey():
         month = st.selectbox("Monat", list(range(1, 13)),
                              format_func=lambda m: GERMAN_MONTHS[m],
                              index=next_month.month - 1)
+
+    open_, deadline = is_survey_open(year, month)
+    if not open_:
+        st.error(f"⏰ Die Umfrage für {GERMAN_MONTHS[month]} {year} ist geschlossen (Deadline war der {deadline.strftime('%d.%m.%Y')}).")
+        return
+    else:
+        st.info(f"Bitte trage ein, an welchen Sonntagen du eingesetzt werden kannst. **Deadline: {deadline.strftime('%d.%m.%Y')}**")
 
     if name == "– bitte wählen –":
         st.info("Wähle deinen Namen aus der Liste.")
