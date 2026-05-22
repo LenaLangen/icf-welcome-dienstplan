@@ -23,7 +23,7 @@ GITHUB_REPO  = st.secrets.get("GITHUB_REPO", "LenaLangen/icf-welcome-dienstplan"
 PAIRS = [("Andreas", "Claudia"), ("Jan M.", "Maria M.")]
 
 # Gottesdienstgrössen
-SLOT_SIZES = {"09:30": 6, "11:30": 4}
+SLOT_SIZES = {"09:30": 6, "11:30": 5}
 
 # Einsatz-Grenzen pro Monat
 MAX_PER_MONTH = 4
@@ -361,7 +361,7 @@ def page_overview():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         st.success("Dienstplan erstellt!")
-        display_schedule(schedule, sundays)
+        display_schedule(schedule, sundays, config, mkey)
 
 
 def page_team():
@@ -394,13 +394,17 @@ def page_team():
 def build_schedule(year, month, responses, team, sundays):
     """
     Regeln:
-    - Jede TL-Person mind. 1× pro Monat, bevorzugt beide Slots am selben Sonntag
-    - 09:30: 1 TL + 6 Welcomer | 11:30: 1 TL + 4 Welcomer
+    - TL wird PRO SLOT zugeteilt (09:30 und 11:30 können verschiedene TLs haben)
+    - Bevorzugt: selbe TL für beide Slots am gleichen Sonntag
+    - Jede TL mind. 1× pro Monat (falls verfügbar)
+    - 09:30: 1 TL + 6 Welcomer | 11:30: 1 TL + 5 Welcomer
+    - Personen können in beiden Slots desselben Sonntags stehen
     - Max 4 Einsätze/Person/Monat, Ziel 2–3
-    - Paare (Andreas+Claudia, Jan M.+Maria M.) immer gemeinsam einteilen
+    - Paare (Andreas+Claudia, Jan M.+Maria M.) gemeinsam einteilen wenn möglich
     """
     schedule = {}
     counts = {n: 0 for n in team["tl"] + team["regular"]}
+    tl_count = {n: 0 for n in team["tl"]}
 
     def avail_for(name, ds, slot, as_tl=False):
         key = f"{slot}_tl" if as_tl else slot
@@ -408,51 +412,60 @@ def build_schedule(year, month, responses, team, sundays):
 
     sunday_ds = [s.strftime("%d.%m.") for s in sundays]
 
-    # ── Schritt 1: TL-Zuteilung pro Sonntag ─────────────────────────────────
-    # Eine TL übernimmt den ganzen Sonntag (beide Slots).
-    # Bevorzuge TLs die an diesem Sonntag für BEIDE Slots als TL verfügbar sind.
-    # Jede TL muss mind. 1× vorkommen → unbesetzte TLs haben Vorrang.
+    # ── Schritt 1: TL pro Slot zuteilen ──────────────────────────────────────
+    # (ds, slot) → tl_name
+    tl_slot = {}
 
-    tl_assignments = {ds: None for ds in sunday_ds}
-    tl_count = {n: 0 for n in team["tl"]}
+    # Sonntage nach Engpass sortieren (wenigste TL-Verfügbarkeit zuerst)
+    def tl_avail_count(ds):
+        return sum(1 for n in team["tl"]
+                   if avail_for(n, ds, "09:30", True) or avail_for(n, ds, "11:30", True))
 
-    def tl_full_avail(name, ds):
-        return avail_for(name, ds, "09:30", as_tl=True) and avail_for(name, ds, "11:30", as_tl=True)
+    for ds in sorted(sunday_ds, key=tl_avail_count):
+        avail_both  = [n for n in team["tl"]
+                       if avail_for(n, ds, "09:30", True) and avail_for(n, ds, "11:30", True)]
+        avail_930   = [n for n in team["tl"] if avail_for(n, ds, "09:30", True)]
+        avail_1130  = [n for n in team["tl"] if avail_for(n, ds, "11:30", True)]
 
-    def tl_any_avail(name, ds):
-        return avail_for(name, ds, "09:30", as_tl=True) or avail_for(name, ds, "11:30", as_tl=True)
+        # Bevorzuge unbesetzte TLs
+        def pick(candidates):
+            unassigned = [n for n in candidates if tl_count[n] == 0]
+            pool = unassigned or candidates
+            return min(pool, key=lambda n: tl_count[n]) if pool else None
 
-    # Sonntage nach Anzahl verfügbarer TLs sortieren (engste zuerst)
-    sorted_ds = sorted(sunday_ds, key=lambda ds: sum(1 for n in team["tl"] if tl_any_avail(n, ds)))
-
-    for ds in sorted_ds:
-        unassigned = [n for n in team["tl"] if tl_count[n] == 0 and tl_any_avail(n, ds)]
-        all_avail = [n for n in team["tl"] if tl_any_avail(n, ds)]
-
-        # Bevorzuge unbesetzte TLs mit voller Verfügbarkeit
-        candidates = sorted(
-            unassigned or all_avail,
-            key=lambda n: (0 if tl_full_avail(n, ds) else 1, tl_count[n])
-        )
-        if candidates:
-            chosen = candidates[0]
-            tl_assignments[ds] = chosen
+        if avail_both:
+            # Selbe TL für beide Slots → bevorzugt
+            chosen = pick(avail_both)
+            tl_slot[(ds, "09:30")] = chosen
+            tl_slot[(ds, "11:30")] = chosen
             tl_count[chosen] += 1
-            counts[chosen] += 1  # TL-Einsatz zählt als 1
+            counts[chosen] += 1
+        else:
+            # Separate TLs pro Slot
+            c930 = pick(avail_930)
+            if c930:
+                tl_slot[(ds, "09:30")] = c930
+                tl_count[c930] += 1
+                counts[c930] += 1
+            c1130 = pick([n for n in avail_1130 if n != c930])
+            if not c1130:
+                c1130 = pick(avail_1130)
+            if c1130:
+                tl_slot[(ds, "11:30")] = c1130
+                if c1130 != c930:
+                    tl_count[c1130] += 1
+                    counts[c1130] += 1
 
     # ── Schritt 2: Welcomer pro Slot ────────────────────────────────────────
     for sunday in sundays:
         ds = sunday.strftime("%d.%m.")
         schedule[ds] = {}
-        tl_name = tl_assignments.get(ds) or "– fehlt –"
 
         for slot in ["09:30", "11:30"]:
-            target = SLOT_SIZES[slot]
+            tl_name = tl_slot.get((ds, slot), "– fehlt –")
+            target  = SLOT_SIZES[slot]
 
-            # Verfügbare Welcomer:
-            # - TL des Sonntags ausschließen (macht schon TL-Dienst)
-            # - Nur Personen die verfügbar sind
-            # - MAX-Grenze: TL zählt 1 pro Slot (nicht 2), damit sie nicht zu früh gesperrt werden
+            # Pool: verfügbar, nicht die TL dieses Slots, unter Max-Grenze
             pool = [
                 n for n in team["regular"] + team["tl"]
                 if n != tl_name
@@ -461,24 +474,24 @@ def build_schedule(year, month, responses, team, sundays):
             ]
 
             chosen = []
-            used = set()
+            used   = set()
 
-            # Paare: beide verfügbar → gemeinsam einteilen
-            # Nur einer verfügbar → diese Person einzeln im Pool lassen
+            # Paare gemeinsam einteilen wenn beide verfügbar
             for p1, p2 in PAIRS:
                 if p1 in pool and p2 in pool and len(chosen) + 2 <= target:
                     chosen += [p1, p2]
-                    used |= {p1, p2}
+                    used   |= {p1, p2}
 
-            # Restliche Plätze: bevorzuge wer noch unter Ziel-Zahl liegt
+            # Restliche Plätze: wer unter Ziel-Zahl liegt hat Vorrang
             individuals = sorted(
                 [n for n in pool if n not in used],
-                key=lambda n: (1 if counts.get(n, 0) >= TARGET_PER_MONTH else 0, counts.get(n, 0))
+                key=lambda n: (1 if counts.get(n, 0) >= TARGET_PER_MONTH else 0,
+                               counts.get(n, 0))
             )
             chosen += individuals[: target - len(chosen)]
 
             # Doppeleinträge verhindern
-            seen = set()
+            seen   = set()
             chosen = [n for n in chosen if not (n in seen or seen.add(n))]
 
             for n in chosen:
@@ -489,17 +502,21 @@ def build_schedule(year, month, responses, team, sundays):
     return schedule
 
 
-def display_schedule(schedule, sundays):
+def display_schedule(schedule, sundays, config, mkey):
     st.markdown("### Vorschau Dienstplan")
+    notes = config.get(mkey, {}).get("notes", {})
     for sunday in sundays:
         ds = sunday.strftime("%d.%m.")
-        st.markdown(f"**{ds}**")
+        note = notes.get(ds, "")
+        header = f"**{ds}**" + (f"  —  *{note}*" if note else "")
+        st.markdown(header)
         for slot in ["09:30", "11:30"]:
             slot_data = schedule.get(ds, {}).get(slot, {})
             tl = slot_data.get("tl", "—")
             members = ", ".join(slot_data.get("team", []))
             col1, col2 = st.columns([1, 3])
-            col1.markdown(f"*{slot}*")
+            label = get_slot_label(config, mkey, ds, slot)
+            col1.markdown(f"*{label}*")
             col2.markdown(f"TL: **{tl}** | Team: {members or '—'}")
 
 
@@ -564,8 +581,9 @@ def export_excel(year, month, schedule, sundays):
             cell(row, col, name, bg=COLORS["tl_fill"], center=True)
             col += 1
 
-    # Team member rows
-    for i in range(1, 7):
+    # Team member rows (max of 09:30 and 11:30 slot sizes)
+    max_rows = max(SLOT_SIZES.values())
+    for i in range(1, max_rows + 1):
         row = 4 + i
         cell(row, 1, str(i), bold=True, bg=COLORS["regular_fill"],
              fg=COLORS["regular_header"], center=True)
@@ -578,6 +596,24 @@ def export_excel(year, month, schedule, sundays):
                 name = members[i - 1] if i - 1 < len(members) else ""
                 cell(row, col, name, center=True)
                 col += 1
+
+    # Notes row (Abendmahl, Taufe, etc.)
+    notes = config.get(mkey, {}).get("notes", {})
+    if any(notes.get(s.strftime("%d.%m.")) for s in sundays):
+        note_row = 4 + max_rows + 1
+        ws.row_dimensions[note_row].height = 18
+        cell(note_row, 1, "", bg="FFFFFF")
+        col = 2
+        for sunday in sundays:
+            ds = sunday.strftime("%d.%m.")
+            note = notes.get(ds, "")
+            # Merge over both slots
+            ws.merge_cells(start_row=note_row, start_column=col,
+                           end_row=note_row, end_column=col + 1)
+            c = ws.cell(row=note_row, column=col, value=note)
+            c.font = Font(name="Arial", italic=True, color="666666", size=9)
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            col += 2
 
     ws.column_dimensions["A"].width = 16
     for i in range(2, 2 + len(sundays) * 2):
@@ -622,6 +658,7 @@ def page_settings():
 
     new_excluded = []
     new_custom_times = {}
+    new_notes = {}
 
     for sunday in all_sundays:
         ds = sunday.strftime("%d.%m.")
@@ -630,14 +667,19 @@ def page_settings():
         if not active:
             new_excluded.append(ds)
         else:
-            cols = st.columns([1, 2, 2])
+            cols = st.columns([1, 2, 2, 3])
             cols[0].markdown("Uhrzeiten:")
-            t930 = cols[1].text_input("1. Gottesdienst", key=f"cfg_t930_{ds}",
-                                       value=custom_times.get(ds, {}).get("09:30", "09:30"))
-            t1130 = cols[2].text_input("2. Gottesdienst", key=f"cfg_t1130_{ds}",
+            t930  = cols[1].text_input("1. GD", key=f"cfg_t930_{ds}",
+                                        value=custom_times.get(ds, {}).get("09:30", "09:30"))
+            t1130 = cols[2].text_input("2. GD", key=f"cfg_t1130_{ds}",
                                         value=custom_times.get(ds, {}).get("11:30", "11:30"))
+            note  = cols[3].text_input("Bemerkung (z. B. Abendmahl, Taufe)",
+                                        key=f"cfg_note_{ds}",
+                                        value=config.get(mkey, {}).get("notes", {}).get(ds, ""))
             if t930 != "09:30" or t1130 != "11:30":
                 new_custom_times[ds] = {"09:30": t930, "11:30": t1130}
+            if note:
+                new_notes[ds] = note
         st.markdown("")
 
     if st.button("💾 Speichern", type="primary"):
@@ -645,14 +687,9 @@ def page_settings():
             config[mkey] = {}
         config[mkey]["excluded_sundays"] = new_excluded
         config[mkey]["custom_times"] = new_custom_times
+        config[mkey]["notes"] = new_notes
         save_config(config)
-        msgs = []
-        if new_excluded:
-            msgs.append(f"Deaktiviert: {', '.join(new_excluded)}")
-        if new_custom_times:
-            for ds, times in new_custom_times.items():
-                msgs.append(f"{ds}: {times['09:30']} Uhr / {times['11:30']} Uhr")
-        st.success("Gespeichert. " + " · ".join(msgs) if msgs else "Gespeichert.")
+        st.success("Gespeichert! ✅")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
