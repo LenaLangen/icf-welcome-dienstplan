@@ -438,7 +438,7 @@ def build_schedule(year, month, responses, team, sundays):
             chosen = candidates[0]
             tl_assignments[ds] = chosen
             tl_count[chosen] += 1
-            counts[chosen] += 2  # Ganzer Sonntag = 2 Einsätze
+            counts[chosen] += 1  # TL-Einsatz zählt als 1
 
     # ── Schritt 2: Welcomer pro Slot ────────────────────────────────────────
     for sunday in sundays:
@@ -449,28 +449,37 @@ def build_schedule(year, month, responses, team, sundays):
         for slot in ["09:30", "11:30"]:
             target = SLOT_SIZES[slot]
 
-            # Verfügbare Welcomer (unter Max-Grenze)
+            # Verfügbare Welcomer:
+            # - TL des Sonntags ausschließen (macht schon TL-Dienst)
+            # - Nur Personen die verfügbar sind
+            # - MAX-Grenze: TL zählt 1 pro Slot (nicht 2), damit sie nicht zu früh gesperrt werden
             pool = [
                 n for n in team["regular"] + team["tl"]
-                if counts.get(n, 0) < MAX_PER_MONTH and avail_for(n, ds, slot)
+                if n != tl_name
+                and avail_for(n, ds, slot)
+                and counts.get(n, 0) < MAX_PER_MONTH
             ]
 
             chosen = []
             used = set()
 
             # Paare: beide verfügbar → gemeinsam einteilen
-            # Nur einer verfügbar → diese Person einzeln in den Pool lassen
+            # Nur einer verfügbar → diese Person einzeln im Pool lassen
             for p1, p2 in PAIRS:
                 if p1 in pool and p2 in pool and len(chosen) + 2 <= target:
                     chosen += [p1, p2]
                     used |= {p1, p2}
 
-            # Restliche Plätze: einzelne Personen (inkl. Paar-Hälften ohne Partner)
+            # Restliche Plätze: bevorzuge wer noch unter Ziel-Zahl liegt
             individuals = sorted(
                 [n for n in pool if n not in used],
                 key=lambda n: (1 if counts.get(n, 0) >= TARGET_PER_MONTH else 0, counts.get(n, 0))
             )
             chosen += individuals[: target - len(chosen)]
+
+            # Doppeleinträge verhindern
+            seen = set()
+            chosen = [n for n in chosen if not (n in seen or seen.add(n))]
 
             for n in chosen:
                 counts[n] = counts.get(n, 0) + 1
