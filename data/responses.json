@@ -642,5 +642,32 @@
       },
       "note": "Wenn möglich gar nicht im Juli, wenn nicht anders machbar nur am 14."
     }
+  },
+  "2026-08": {
+    "Ute K.": {
+      "availability": {
+        "02.08.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "09.08.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "16.08.": {
+          "09:30": true,
+          "11:30": true
+        },
+        "23.08.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "30.08.": {
+          "09:30": false,
+          "11:30": false
+        }
+      },
+      "note": "Wenn möglich gar nicht im Juli, wenn nicht anders machbar nur am 12."
+    }
   }
 }
