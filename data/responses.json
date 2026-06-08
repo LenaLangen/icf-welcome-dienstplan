@@ -645,7 +645,7 @@
     "Jan R.": {
       "availability": {
         "05.07.": {
-          "09:30": false,
+          "09:30": true,
           "11:30": false
         },
         "12.07.": {
@@ -653,7 +653,7 @@
           "11:30": false
         },
         "19.07.": {
-          "09:30": true,
+          "09:30": false,
           "11:30": false
         },
         "26.07.": {
@@ -661,7 +661,7 @@
           "11:30": false
         }
       },
-      "note": ""
+      "note": "Bitte 19.07. löschen, da wir an dem Wochenende unterwegs sind.  "
     },
     "Laura": {
       "availability": {
