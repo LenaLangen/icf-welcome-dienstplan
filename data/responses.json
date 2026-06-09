@@ -683,6 +683,27 @@
         }
       },
       "note": "Bitte den 19.07. löschen,  da wir an dem Wochenende unterwegs sind."
+    },
+    "Sofia": {
+      "availability": {
+        "05.07.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "12.07.": {
+          "09:30": false,
+          "11:30": true
+        },
+        "19.07.": {
+          "09:30": false,
+          "11:30": false
+        },
+        "26.07.": {
+          "09:30": false,
+          "11:30": false
+        }
+      },
+      "note": ""
     }
   },
   "2026-08": {
