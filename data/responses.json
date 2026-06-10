@@ -754,6 +754,35 @@
         }
       },
       "note": ""
+    },
+    "Rebecca": {
+      "availability": {
+        "05.07.": {
+          "09:30": false,
+          "09:30_tl": true,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "12.07.": {
+          "09:30": false,
+          "09:30_tl": true,
+          "11:30": false,
+          "11:30_tl": true
+        },
+        "19.07.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "26.07.": {
+          "09:30": false,
+          "09:30_tl": true,
+          "11:30": false,
+          "11:30_tl": true
+        }
+      },
+      "note": "Dienst wenn  möglich nur an 1 Sonntag"
     }
   },
   "2026-08": {
