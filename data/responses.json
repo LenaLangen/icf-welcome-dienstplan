@@ -825,6 +825,27 @@
         }
       },
       "note": ""
+    },
+    "Hivin": {
+      "availability": {
+        "05.07.": {
+          "09:30": true,
+          "11:30": false
+        },
+        "12.07.": {
+          "09:30": true,
+          "11:30": false
+        },
+        "19.07.": {
+          "09:30": true,
+          "11:30": false
+        },
+        "26.07.": {
+          "09:30": true,
+          "11:30": false
+        }
+      },
+      "note": "Stehe gerne zur Verfügung, wenn Ausfälle bestehen."
     }
   },
   "2026-08": {
