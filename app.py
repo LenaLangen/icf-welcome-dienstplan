@@ -71,7 +71,7 @@ def _gh_read(path):
     return None, None
 
 def _gh_write(path, data_dict, sha=None):
-    """Create or update a file on GitHub."""
+    """Create or update a file on GitHub. Returns True on success."""
     payload = {
         "message": "update data",
         "content": base64.b64encode(
@@ -80,8 +80,9 @@ def _gh_write(path, data_dict, sha=None):
     }
     if sha:
         payload["sha"] = sha
-    req.put(f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
-            headers=_gh_headers(), json=payload, timeout=10)
+    r = req.put(f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
+                headers=_gh_headers(), json=payload, timeout=10)
+    return r.status_code in (200, 201)
 
 
 # ── Data helpers ─────────────────────────────────────────────────────────────
@@ -119,8 +120,19 @@ def load_responses():
 
 def save_responses(responses):
     if GITHUB_TOKEN:
-        _, sha = _gh_read("data/responses.json")
-        _gh_write("data/responses.json", responses, sha)
+        # Nochmal frisch lesen bevor wir schreiben → verhindert Überschreiben
+        # anderer gleichzeitiger Antworten (race condition)
+        current, sha = _gh_read("data/responses.json")
+        if current:
+            # Merge: bestehende Antworten behalten, neue hinzufügen
+            for month_key, month_data in responses.items():
+                if month_key not in current:
+                    current[month_key] = {}
+                current[month_key].update(month_data)
+            responses = current
+        ok = _gh_write("data/responses.json", responses, sha)
+        if not ok:
+            raise RuntimeError("GitHub-Speichern fehlgeschlagen")
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(RESPONSES_FILE, "w") as f:
         json.dump(responses, f, ensure_ascii=False, indent=2)
@@ -254,14 +266,17 @@ def page_survey():
     note = st.text_area("Anmerkungen (optional)", placeholder="z. B. 'Am 15.06. nur wenn nötig'")
 
     if st.button("✅ Verfügbarkeit speichern", type="primary"):
-        responses = load_responses()
-        key = response_key(year, month)
-        if key not in responses:
-            responses[key] = {}
-        responses[key][name] = {"availability": selections, "note": note}
-        save_responses(responses)
-        st.success(f"Danke, {name}! Deine Verfügbarkeit wurde gespeichert.")
-        st.balloons()
+        try:
+            responses = load_responses()
+            key = response_key(year, month)
+            if key not in responses:
+                responses[key] = {}
+            responses[key][name] = {"availability": selections, "note": note}
+            save_responses(responses)
+            st.success(f"Danke, {name}! Deine Verfügbarkeit für {GERMAN_MONTHS[month]} wurde gespeichert. ✅")
+            st.balloons()
+        except Exception as e:
+            st.error(f"⚠️ Speichern fehlgeschlagen — bitte nochmal versuchen. ({e})")
 
 
 def page_overview():
