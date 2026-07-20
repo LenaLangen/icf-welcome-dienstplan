@@ -986,6 +986,41 @@
         }
       },
       "note": "Wenn möglich gar nicht im Juli, wenn nicht anders machbar nur am 12."
+    },
+    "Lena L.": {
+      "availability": {
+        "02.08.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "09.08.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "16.08.": {
+          "09:30": false,
+          "09:30_tl": true,
+          "11:30": false,
+          "11:30_tl": true
+        },
+        "23.08.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        },
+        "30.08.": {
+          "09:30": false,
+          "09:30_tl": false,
+          "11:30": false,
+          "11:30_tl": false
+        }
+      },
+      "note": ""
     }
   }
 }
