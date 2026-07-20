@@ -16,8 +16,12 @@ RESPONSES_FILE = os.path.join(DATA_DIR, "responses.json")
 TEAM_FILE = os.path.join(DATA_DIR, "team.json")
 ADMIN_PIN = "icf2026"
 
-GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "")
-GITHUB_REPO  = st.secrets.get("GITHUB_REPO", "LenaLangen/icf-welcome-dienstplan")
+try:
+    GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "")
+    GITHUB_REPO  = st.secrets.get("GITHUB_REPO", "LenaLangen/icf-welcome-dienstplan")
+except Exception:
+    GITHUB_TOKEN = ""
+    GITHUB_REPO  = "LenaLangen/icf-welcome-dienstplan"
 
 # Paare: werden immer zusammen eingeplant
 PAIRS = [("Andreas", "Claudia"), ("Jan M.", "Maria M.")]
@@ -132,7 +136,10 @@ def save_responses(responses):
             responses = current
         ok = _gh_write("data/responses.json", responses, sha)
         if not ok:
-            raise RuntimeError("GitHub-Speichern fehlgeschlagen")
+            raise RuntimeError(
+                "GitHub-Token ungültig oder abgelaufen. "
+                "Bitte Lena kontaktieren — der Token muss in Streamlit Secrets erneuert werden."
+            )
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(RESPONSES_FILE, "w") as f:
         json.dump(responses, f, ensure_ascii=False, indent=2)
@@ -158,7 +165,7 @@ def save_config(config):
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
 
-def get_active_sundays(year: int, month: int) -> list[date]:
+def get_active_sundays(year: int, month: int):
     """All Sundays of the month minus manually deactivated ones."""
     config = load_config()
     excluded = config.get(response_key(year, month), {}).get("excluded_sundays", [])
@@ -171,7 +178,7 @@ def get_active_sundays(year: int, month: int) -> list[date]:
                 sundays.append(d)
     return sundays
 
-def get_sundays(year: int, month: int) -> list[date]:
+def get_sundays(year: int, month: int):
     cal = calendar.monthcalendar(year, month)
     sundays = []
     for week in cal:
